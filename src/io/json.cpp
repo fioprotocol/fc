@@ -602,6 +602,11 @@ namespace fc
    template<typename T>
    void to_stream( T& os, const variant& v, json::output_formatting format )
    {
+
+     //SPECIAL NOTE 0xfffffffffffffff was chosen to permit the consistent display of fio SUF amounts
+     //this number of bits permits a max value to stringify that is larger than the foreseeable supply
+     //of FIO in SUF.
+
       switch( v.get_type() )
       {
          case variant::null_type:
@@ -611,7 +616,7 @@ namespace fc
          {
               int64_t i = v.as_int64();
               if( format == json::stringify_large_ints_and_doubles &&
-                  i > 0xffffffff )
+                  i > 0xfffffffffffffff  )
                  os << '"'<<v.as_string()<<'"';
               else
                  os << i;
@@ -622,7 +627,7 @@ namespace fc
          {
               uint64_t i = v.as_uint64();
               if( format == json::stringify_large_ints_and_doubles &&
-                  i > 0xffffffff )
+                  i > 0xfffffffffffffff )
                  os << '"'<<v.as_string()<<'"';
               else
                  os << i;
