@@ -493,11 +493,6 @@ namespace fc
     */
    void escape_string( const string& str, std::ostream& os )
    {
-       // Assume anything that starts with a '{' is a json string and do not process
-      if (str[0] == '{') {
-        os << str;
-        return;
-      }
       os << '"';
       for( auto itr = str.begin(); itr != str.end(); ++itr )
       {
