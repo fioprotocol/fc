@@ -610,10 +610,10 @@ namespace fc
          case variant::int64_type:
          {
               int64_t i = v.as_int64();
-              if( format == json::stringify_large_ints_and_doubles &&
+              /*if( format == json::stringify_large_ints_and_doubles &&
                   i > 0xfffffffffffffff  )
                  os << '"'<<v.as_string()<<'"';
-              else
+              else */
                  os << i;
 
               return;
@@ -621,10 +621,10 @@ namespace fc
          case variant::uint64_type:
          {
               uint64_t i = v.as_uint64();
-              if( format == json::stringify_large_ints_and_doubles &&
+              /*if( format == json::stringify_large_ints_and_doubles &&
                   i > 0xfffffffffffffff )
                  os << '"'<<v.as_string()<<'"';
-              else
+              else  */
                  os << i;
 
               return;
