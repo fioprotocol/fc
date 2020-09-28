@@ -24,6 +24,10 @@ namespace fc { namespace crypto {
    {
    }
 
+   int public_key::which() const {
+      return _storage.which();
+   }
+
    static public_key::storage_type parse_base58(const std::string& base58str)
    {
       constexpr auto legacy_prefix = config::public_key_legacy_prefix;
@@ -68,9 +72,9 @@ namespace fc { namespace crypto {
       return _storage.visit(is_valid_visitor());
    }
 
-   public_key::operator std::string() const
+   std::string public_key::to_string(const fc::yield_function_t& yield) const
    {
-      auto data_str = _storage.visit(base58str_visitor<storage_type, config::public_key_prefix, 0>());
+      auto data_str = _storage.visit(base58str_visitor<storage_type, config::public_key_prefix, 0>(yield));
 
       auto which = _storage.which();
       if (which == 0) {
@@ -81,7 +85,7 @@ namespace fc { namespace crypto {
    }
 
    std::ostream& operator<<(std::ostream& s, const public_key& k) {
-      s << "public_key(" << std::string(k) << ')';
+      s << "public_key(" << k.to_string() << ')';
       return s;
    }
 
@@ -102,9 +106,9 @@ namespace fc { namespace crypto {
 namespace fc
 {
    using namespace std;
-   void to_variant(const fc::crypto::public_key& var, fc::variant& vo)
+   void to_variant(const fc::crypto::public_key& var, fc::variant& vo, const fc::yield_function_t& yield)
    {
-      vo = std::string(var);
+      vo = var.to_string(yield);
    }
 
    void from_variant(const fc::variant& var, fc::crypto::public_key& vo)

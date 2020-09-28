@@ -15,7 +15,7 @@ namespace fc { namespace crypto {
 
       static auto calculate_checksum(const DataType& data, const char *prefix = nullptr) {
          auto encoder = ripemd160::encoder();
-         encoder.write((const char *)&data, sizeof(DataType));
+         raw::pack(encoder, data);
 
          if (prefix != nullptr) {
             encoder.write(prefix, const_strlen(prefix));
@@ -42,8 +42,10 @@ namespace fc { namespace crypto {
 
          if (prefix == prefix_str) {
             auto bin = fc::from_base58(data_str);
-            FC_ASSERT(bin.size() >= sizeof(data_type) + sizeof(uint32_t));
-            auto wrapped = fc::raw::unpack<wrapper>(bin);
+            fc::datastream<const char*> unpacker(bin.data(), bin.size());
+            wrapper wrapped;
+            fc::raw::unpack(unpacker, wrapped);
+            FC_ASSERT(!unpacker.remaining(), "decoded base58 length too long");
             auto checksum = wrapper::calculate_checksum(wrapped.data, prefix);
             FC_ASSERT(checksum == wrapped.check);
             return Result(KeyType(wrapped.data));
@@ -85,6 +87,8 @@ namespace fc { namespace crypto {
 
    template<typename Storage, const char * const * Prefixes, int DefaultPosition = -1>
    struct base58str_visitor : public fc::visitor<std::string> {
+      explicit base58str_visitor( const fc::yield_function_t& yield )
+      : _yield(yield) {};
       template< typename KeyType >
       std::string operator()( const KeyType& key ) const {
          using data_type = typename KeyType::data_type;
@@ -93,53 +97,75 @@ namespace fc { namespace crypto {
 
          checksummed_data<data_type> wrapper;
          wrapper.data = key.serialize();
+         _yield();
          wrapper.check = checksummed_data<data_type>::calculate_checksum(wrapper.data, !is_default ? Prefixes[position] : nullptr);
+         _yield();
          auto packed = raw::pack( wrapper );
-         auto data_str = to_base58( packed.data(), packed.size() );
+         _yield();
+         auto data_str = to_base58( packed.data(), packed.size(), _yield );
+         _yield();
          if (!is_default) {
             data_str = string(Prefixes[position]) + "_" + data_str;
          }
+         _yield();
 
          return data_str;
       }
+      const fc::yield_function_t _yield;
    };
 
-   template<typename Storage>
+   template<typename T>
    struct eq_comparator {
+      static bool apply(const T& a, const T& b) {
+         return a.serialize() == b.serialize();
+      }
+   };
+
+   template<typename ... Ts>
+   struct eq_comparator<fc::static_variant<Ts...>> {
+      using variant_type = fc::static_variant<Ts...>;
       struct visitor : public fc::visitor<bool> {
-         visitor(const Storage &b)
+         visitor(const variant_type &b)
             : _b(b) {}
 
          template<typename KeyType>
          bool operator()(const KeyType &a) const {
             const auto &b = _b.template get<KeyType>();
-            return a.serialize() == b.serialize();
+            return eq_comparator<KeyType>::apply(a,b);
          }
 
-         const Storage &_b;
+         const variant_type &_b;
       };
 
-      static bool apply(const Storage& a, const Storage& b) {
+      static bool apply(const variant_type& a, const variant_type& b) {
          return a.which() == b.which() && a.visit(visitor(b));
       }
    };
 
-   template<typename Storage>
+   template<typename T>
    struct less_comparator {
+      static bool apply(const T& a, const T& b) {
+         return a.serialize() < b.serialize();
+      }
+   };
+
+   template<typename ... Ts>
+   struct less_comparator<fc::static_variant<Ts...>> {
+      using variant_type = fc::static_variant<Ts...>;
       struct visitor : public fc::visitor<bool> {
-         visitor(const Storage &b)
+         visitor(const variant_type &b)
             : _b(b) {}
 
          template<typename KeyType>
          bool operator()(const KeyType &a) const {
             const auto &b = _b.template get<KeyType>();
-            return a.serialize() < b.serialize();
+            return less_comparator<KeyType>::apply(a,b);
          }
 
-         const Storage &_b;
+         const variant_type &_b;
       };
 
-      static bool apply(const Storage& a, const Storage& b) {
+      static bool apply(const variant_type& a, const variant_type& b) {
          return a.which() < b.which() || (a.which() == b.which() && a.visit(visitor(b)));
       }
    };

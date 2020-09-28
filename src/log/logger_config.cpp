@@ -31,8 +31,15 @@ namespace fc {
 
    void log_config::update_logger( const fc::string& name, logger& log ) {
       std::lock_guard g( log_config::get().log_mutex );
-      if( log_config::get().logger_map.find( name ) != log_config::get().logger_map.end() )
+      if( log_config::get().logger_map.find( name ) != log_config::get().logger_map.end() ) {
          log = log_config::get().logger_map[name];
+      } else {
+         // no entry for logger, so setup with default logger if it exists, otherwise do nothing since default logger not configured
+         if( log_config::get().logger_map.find( DEFAULT_LOGGER ) != log_config::get().logger_map.end() ) {
+            log = log_config::get().logger_map[DEFAULT_LOGGER];
+            log_config::get().logger_map.emplace( name, log );
+         }
+      }
    }
 
    void log_config::initialize_appenders( boost::asio::io_service& ios ) {
@@ -80,10 +87,10 @@ namespace fc {
 
 
          for( auto a = cfg.loggers[i].appenders.begin(); a != cfg.loggers[i].appenders.end(); ++a ){
-           auto ap_it = log_config::get().appender_map.find(*a);
-           if( ap_it != log_config::get().appender_map.end() ) {
-              lgr.add_appender(ap_it->second);
-           }
+            auto ap_it = log_config::get().appender_map.find(*a);
+            if( ap_it != log_config::get().appender_map.end() ) {
+               lgr.add_appender(ap_it->second);
+            }
          }
       }
       return reg_console_appender || reg_gelf_appender;
@@ -117,7 +124,7 @@ namespace fc {
                  ) );
 
       logger_config dlc;
-      dlc.name = "default";
+      dlc.name = DEFAULT_LOGGER;
       dlc.level = log_level::info;
       dlc.appenders.push_back("stderr");
       cfg.loggers.push_back( dlc );
